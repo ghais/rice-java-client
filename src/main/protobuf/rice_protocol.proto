@@ -1,0 +1,70 @@
+package rice;
+option java_package = "com.convert.rice.protocol";
+option java_multiple_files = true;
+
+enum Aggregation {
+	SECOND = 1;
+	MINUTE = 2;
+	HOUR   = 3;
+	DAY    = 4;
+	MONTH  = 5;
+}
+
+message Point {
+	required int64 timestamp = 1;
+	required int64 value = 2;
+}
+
+message Request {
+	message Increment {
+		message Metric {
+			required string key = 1;
+			required uint64 value = 2;
+		}
+
+		required string type = 1;
+		required string key = 2;
+		repeated Metric metrics = 3;
+		optional int64 timestamp = 4;
+	}
+
+	message Get {
+		required string type = 1;
+		required string key = 2;
+		required int64 start = 3;
+		required int64 end = 4;
+		optional Aggregation aggregation = 5 [default = HOUR];
+
+	}
+
+	message Create {
+		required string type = 1;
+		repeated string metrics = 2;
+	}
+	//One of these will be filled in.
+	optional Increment inc = 1;
+	optional Get get = 2;
+	optional Create create = 3;
+}
+
+message Response {
+	message IncResult {
+		required string type = 1;
+		required string key = 2;
+		required int64 timestamp = 3;
+	}
+
+	message GetResult {
+		message Metric {
+			required string name = 1;
+			repeated Point points = 2;
+		}
+
+		required string type = 1;
+		required string key = 2;
+		repeated Metric metrics = 3;
+	}
+
+	optional IncResult inc_result = 1;
+	optional GetResult get_result = 2;
+}
