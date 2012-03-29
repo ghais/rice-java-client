@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTablePool;
@@ -38,14 +39,16 @@ public class RiceClientTest {
 
     private static RiceProtoBufRpcServer server;
 
+    private static Configuration conf;
+
     @BeforeClass
     public static void setup() throws Exception {
         testUtil = new HBaseTestingUtility();
         testUtil.startMiniCluster();
         pool = new HTablePool(testUtil.getConfiguration(), 10);
         admin = testUtil.getHBaseAdmin();
-
-        final HBaseTimeSeries hBaseTimeSeries = new HBaseTimeSeries(pool);
+        conf = testUtil.getConfiguration();
+        final HBaseTimeSeries hBaseTimeSeries = new HBaseTimeSeries(conf, pool);
         hBaseTimeSeries.checkOrCreateTable(admin, type);
 
         server = new RiceProtoBufRpcServer(7654, new Supplier<TimeSeries>() {
@@ -63,7 +66,7 @@ public class RiceClientTest {
     @AfterClass
     public static void after() throws IOException, InterruptedException, ExecutionException {
         server.stop().get();
-        new HBaseTimeSeries(pool).deleteTable(admin, type);
+        new HBaseTimeSeries(conf, pool).deleteTable(admin, type);
         pool.close();
         testUtil.shutdownMiniCluster();
     }

@@ -114,6 +114,7 @@ public class RiceClient {
 
     public ListenableFuture<Void> close() throws Exception {
         pool.close();
+        bootstrap.releaseExternalResources();
         final SettableFuture<Void> future = SettableFuture.<Void> create();
         group.close().addListener(new ChannelGroupFutureListener() {
 
@@ -122,6 +123,7 @@ public class RiceClient {
                 future.set(null);
             }
         });
+
         return future;
 
     }
