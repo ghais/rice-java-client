@@ -222,13 +222,17 @@ public class RiceClient {
 
         @Override
         public void exceptionCaught(
-                ChannelHandlerContext ctx, ExceptionEvent e) {
+                ChannelHandlerContext ctx, ExceptionEvent event) {
             logger.log(
                     Level.WARNING,
-                    "Unexpected exception from downstream.",
-                    e.getCause());
-            e.getCause().printStackTrace();
-            e.getChannel().close();
+                    "Unexpected exception from downstream. " + event.getCause(), event.getCause());
+            try {
+                pool.invalidateObject(event.getChannel());
+            } catch (Exception exception) {
+                if (event.getChannel().isOpen()) {
+                    event.getChannel().close();
+                }
+            }
         }
     }
 }
