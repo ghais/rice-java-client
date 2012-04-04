@@ -69,7 +69,7 @@
     <dependency>
       <groupId>com.convert</groupId>
       <artifactId>rice</artifactId>
-      <version>[0.4.1,0.5.0)</version>
+      <version>0.4.3-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -111,7 +111,7 @@
             <configuration>
               <tasks>
                 <mkdir dir="target/generated-sources" />
-                <exec executable="tools/protobuf-2.4.1/protoc">
+                <exec executable="protoc">
                   <arg value="--java_out=target/generated-sources" />
                   <arg value="src/main/protobuf/rice_protocol.proto" />
                 </exec>
