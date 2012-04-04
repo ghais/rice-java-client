@@ -13,17 +13,18 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTablePool;
+import org.joda.time.DateTime;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.convert.rice.AggregationUtility;
 import com.convert.rice.TimeSeries;
+import com.convert.rice.client.protocol.Aggregation;
+import com.convert.rice.client.protocol.Response.GetResult;
+import com.convert.rice.client.protocol.Response.GetResult.Metric;
+import com.convert.rice.client.protocol.Response.IncResult;
 import com.convert.rice.hbase.HBaseTimeSeries;
-import com.convert.rice.protocol.Aggregation;
-import com.convert.rice.protocol.Response.GetResult;
-import com.convert.rice.protocol.Response.GetResult.Metric;
-import com.convert.rice.protocol.Response.IncResult;
 import com.convert.rice.server.protobuf.RiceProtoBufRpcServer;
 import com.google.common.base.Supplier;
 
@@ -103,14 +104,17 @@ public class RiceClientTest {
             }
         };
         String key = UUID.randomUUID().toString();
-        long timestamp = System.currentTimeMillis();
+        // 5 hour difference between start and end since the second04:00:01 will cause the end point to be 04:00:00
+        long start = new DateTime(2012, 01, 01, 00, 00, 00).getMillis();
+        long end = new DateTime(2012, 01, 01, 04, 00, 01).getMillis();
+
         RiceClient client = new RiceClient("localhost", 7654);
 
         // increment twice.
-        client.inc(type, key, metrics, timestamp).get();
-        client.inc(type, key, metrics, timestamp).get();
+        client.inc(type, key, metrics, start).get();
+        client.inc(type, key, metrics, start).get();
 
-        GetResult result = client.get(type, key, 0, timestamp, Aggregation.HOUR).get();
+        GetResult result = client.get(type, key, start, end, Aggregation.HOUR).get();
         assertEquals(key, result.getKey());
         assertEquals(metrics.size(), result.getMetricsCount());
         Map<String, Metric> metricsMap = new HashMap<String, Metric>(metrics.size());
@@ -123,13 +127,13 @@ public class RiceClientTest {
         assertNotNull(metricA);
         assertNotNull(metricB);
 
-        assertEquals(1, metricA.getPointsCount());
-        assertEquals(1, metricB.getPointsCount());
+        assertEquals(5, metricA.getPointsCount());
+        assertEquals(5, metricB.getPointsCount());
 
-        assertEquals(AggregationUtility.aggregateTo(timestamp, Aggregation.HOUR).getMillis(), metricA.getPoints(0)
-                .getTimestamp());
-        assertEquals(AggregationUtility.aggregateTo(timestamp, Aggregation.HOUR).getMillis(), metricB.getPoints(0)
-                .getTimestamp());
+        assertEquals(AggregationUtility.aggregateTo(start, com.convert.rice.protocol.Aggregation.HOUR).getMillis(),
+                metricA.getPoints(0).getTimestamp());
+        assertEquals(AggregationUtility.aggregateTo(start, com.convert.rice.protocol.Aggregation.HOUR).getMillis(),
+                metricB.getPoints(0).getTimestamp());
 
         assertEquals(20L, metricA.getPoints(0).getValue());
         assertEquals(40L, metricB.getPoints(0).getValue());

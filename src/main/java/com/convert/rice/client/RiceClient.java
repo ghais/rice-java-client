@@ -32,15 +32,15 @@ import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import org.jboss.netty.handler.logging.LoggingHandler;
 
-import com.convert.rice.protocol.Aggregation;
-import com.convert.rice.protocol.Request;
-import com.convert.rice.protocol.Request.Get;
-import com.convert.rice.protocol.Request.Increment;
-import com.convert.rice.protocol.Request.Increment.Builder;
-import com.convert.rice.protocol.Request.Increment.Metric;
-import com.convert.rice.protocol.Response;
-import com.convert.rice.protocol.Response.GetResult;
-import com.convert.rice.protocol.Response.IncResult;
+import com.convert.rice.client.protocol.Aggregation;
+import com.convert.rice.client.protocol.Request;
+import com.convert.rice.client.protocol.Request.Get;
+import com.convert.rice.client.protocol.Request.Increment;
+import com.convert.rice.client.protocol.Request.Increment.Builder;
+import com.convert.rice.client.protocol.Request.Increment.Metric;
+import com.convert.rice.client.protocol.Response;
+import com.convert.rice.client.protocol.Response.GetResult;
+import com.convert.rice.client.protocol.Response.IncResult;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
