@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.convert</groupId>
   <artifactId>rice-java-client</artifactId>
-  <version>0.4.1</version>
+  <version>0.5.0-SNAPSHOT</version>
   <name>rice-java-client</name>
   <description>An analytics tool</description>
   <url>http://github.com/ghais/rice</url>
@@ -69,7 +69,7 @@
     <dependency>
       <groupId>com.convert</groupId>
       <artifactId>rice</artifactId>
-      <version>0.4.3</version>
+      <version>0.4.4-SNAPSHOT</version>
       <scope>test</scope>
     </dependency>
     <dependency>
