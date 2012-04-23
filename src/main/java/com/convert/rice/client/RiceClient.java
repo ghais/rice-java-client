@@ -1,5 +1,6 @@
 package com.convert.rice.client;
 
+import static com.google.common.collect.Iterables.transform;
 import static org.jboss.netty.channel.Channels.pipeline;
 
 import java.net.InetSocketAddress;
@@ -32,15 +33,19 @@ import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
 import org.jboss.netty.handler.codec.protobuf.ProtobufVarint32LengthFieldPrepender;
 import org.jboss.netty.handler.logging.LoggingHandler;
 
-import com.convert.rice.client.protocol.Aggregation;
+import com.convert.rice.client.protocol.MapReduce;
+import com.convert.rice.client.protocol.MapReduce.GroupBy;
+import com.convert.rice.client.protocol.MapReduce.MapFunction;
+import com.convert.rice.client.protocol.MapReduce.ReduceFunction;
 import com.convert.rice.client.protocol.Request;
 import com.convert.rice.client.protocol.Request.Get;
 import com.convert.rice.client.protocol.Request.Increment;
-import com.convert.rice.client.protocol.Request.Increment.Builder;
 import com.convert.rice.client.protocol.Request.Increment.Metric;
 import com.convert.rice.client.protocol.Response;
 import com.convert.rice.client.protocol.Response.GetResult;
 import com.convert.rice.client.protocol.Response.IncResult;
+import com.google.common.base.Function;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
@@ -95,21 +100,12 @@ public class RiceClient {
         }, config);
     }
 
-    public ListenableFuture<IncResult> inc(String type, String key, Map<String, Long> metrics, long timestamp)
+    public ListenableFuture<Response> send(Request req)
             throws Exception {
         Channel ch = pool.borrowObject();
 
         RiceClientHandler handler = ch.getPipeline().get(RiceClientHandler.class);
-        return handler.inc(type, key, timestamp, metrics);
-
-    }
-
-    public ListenableFuture<GetResult> get(String type, String key, long start, long end, Aggregation aggregation)
-            throws Exception {
-        Channel ch = pool.borrowObject();
-        RiceClientHandler handler = ch.getPipeline().get(RiceClientHandler.class);
-        return handler.get(type, key, start, end, aggregation);
-
+        return handler.send(req);
     }
 
     public ListenableFuture<Void> close() throws Exception {
@@ -153,31 +149,12 @@ public class RiceClient {
         // Stateful properties
         private volatile Channel channel;
 
-        public SettableFuture<IncResult> inc(String type, String key, long timestamp, Map<String, Long> metrics) {
-            Builder builder = Increment.newBuilder().setType(type)
-                    .setKey(key)
-                    .setTimestamp(timestamp);
-            for (Entry<String, Long> entry : metrics.entrySet()) {
-                builder.addMetrics(Metric.newBuilder().setKey(entry.getKey()).setValue(entry.getValue()));
-            }
-            SettableFuture<IncResult> future = SettableFuture.<IncResult> create();
+        public SettableFuture<Response> send(Request request) {
+            SettableFuture<Response> future = SettableFuture.create();
             channel.getPipeline().getContext(this).setAttachment(future);
-            channel.write(Request.newBuilder().setInc(builder));
+            channel.write(request);
             return future;
 
-        }
-
-        public ListenableFuture<GetResult> get(String type, String key, long start, long end, Aggregation aggregation) {
-            Get.Builder builder = Get.newBuilder()
-                    .setKey(key)
-                    .setType(type)
-                    .setStart(start)
-                    .setEnd(end)
-                    .setAggregation(aggregation);
-            SettableFuture<GetResult> future = SettableFuture.<GetResult> create();
-            channel.getPipeline().getContext(this).setAttachment(future);
-            channel.write(Request.newBuilder().setGet(builder));
-            return future;
         }
 
         @Override
@@ -197,19 +174,21 @@ public class RiceClient {
         }
 
         @Override
+        public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e) throws Exception {
+            SettableFuture<Response> future = (SettableFuture<Response>) ctx.getAttachment();
+            if (future.cancel(false)) {
+                logger.log(Level.WARNING, "closing channel before task was complete");
+            }
+            super.channelClosed(ctx, e);
+        }
+
+        @Override
         public void messageReceived(
                 ChannelHandlerContext ctx, final MessageEvent event) {
             try {
                 Response result = (Response) event.getMessage();
-                if (result.hasGetResult()) {
-                    @SuppressWarnings("unchecked")
-                    SettableFuture<GetResult> future = (SettableFuture<GetResult>) ctx.getAttachment();
-                    future.set(result.getGetResult());
-                } else if (result.hasIncResult()) {
-                    @SuppressWarnings("unchecked")
-                    SettableFuture<IncResult> future = (SettableFuture<IncResult>) ctx.getAttachment();
-                    future.set(result.getIncResult());
-                }
+                SettableFuture<Response> future = (SettableFuture<Response>) ctx.getAttachment();
+                future.set(result);
             } finally {
                 try {
                     pool.returnObject(event.getChannel());
@@ -234,5 +213,73 @@ public class RiceClient {
                 }
             }
         }
+    }
+
+    /**
+     * A handy function to do a single get request with some aggregation function.
+     * 
+     * @param type
+     * @param key
+     * @param start
+     * @param end
+     * @param step
+     * @return
+     * @throws Exception
+     */
+    public ListenableFuture<GetResult> get(String type, String key, long start, long end, int step) throws Exception {
+        GroupBy gropBy = GroupBy.newBuilder().setStep(step).build();
+        MapReduce aggregation = MapReduce.newBuilder().setMapFunction(MapFunction.newBuilder().setGroupBy(gropBy))
+                .setReduceFunction(ReduceFunction.SUM).build();
+        Get get = Get
+                .newBuilder()
+                .setKey(key)
+                .setType(type)
+                .setStart(start)
+                .setEnd(end)
+                .addMapReduce(aggregation)
+                .build();
+
+        return Futures.transform(this.send(Request.newBuilder().addGet(get).build()),
+                new Function<Response, GetResult>() {
+
+                    @Override
+                    public GetResult apply(Response input) {
+                        return input.getGetResult(0);
+                    }
+                });
+
+    }
+
+    /**
+     * A handy function to do a single increment
+     * 
+     * @param type
+     * @param key
+     * @param metrics
+     * @param timestamp
+     * @return
+     * @throws Exception
+     */
+    public ListenableFuture<IncResult> inc(String type, String key, Map<String, Long> metrics, long timestamp)
+            throws Exception {
+        Function<Entry<String, Long>, Metric> f = new Function<Entry<String, Long>, Increment.Metric>() {
+
+            @Override
+            public Metric apply(Entry<String, Long> input) {
+                return Metric.newBuilder().setKey(input.getKey()).setValue(input.getValue()).build();
+            }
+        };
+        Increment inc = Increment.newBuilder().setType(type).setTimestamp(timestamp).setKey(key)
+                .addAllMetrics(transform(metrics.entrySet(), f)).build();
+
+        return Futures.transform(this.send(Request.newBuilder().addInc(inc).build()),
+                new Function<Response, IncResult>() {
+
+                    @Override
+                    public IncResult apply(Response input) {
+                        return input.getIncResult(0);
+                    }
+                });
+
     }
 }

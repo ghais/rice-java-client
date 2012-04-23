@@ -2,16 +2,40 @@ package rice;
 option java_package = "com.convert.rice.client.protocol";
 option java_multiple_files = true;
 
-enum Aggregation {
-	SECOND = 1;
-	MINUTE = 2;
-	HOUR   = 3;
-	DAY    = 4;
-	MONTH  = 5;
+message MapReduce {
+	message Interval {
+		required int64 start = 1;
+		required int64 end = 2;
+	}
+	message GroupBy {
+		optional uint32 step = 1;
+		repeated Interval intervals =2;
+	}
+
+	message Identity {
+	}
+
+	message MapFunction {
+		optional GroupBy group_by = 1;
+		optional Identity identity = 2;
+	}
+
+	enum ReduceFunction {
+		SUM = 1;
+		MAX = 2;
+		MIN = 3;
+		MEAN = 4;
+		STD_DEV = 5;
+		MEDIAN = 6;
+	}
+
+	required MapFunction map_function = 1;
+	required ReduceFunction reduce_function = 2;
 }
 
 message Point {
-	required int64 timestamp = 1;
+	required int64 start = 1;
+	optional int64 end = 3;
 	required int64 value = 2;
 }
 
@@ -33,25 +57,37 @@ message Request {
 		required string key = 2;
 		required int64 start = 3;
 		required int64 end = 4;
-		optional Aggregation aggregation = 5 [default = HOUR];
-
+		repeated MapReduce map_reduce = 5;
 	}
 
 	message Create {
 		required string type = 1;
-		repeated string metrics = 2;
 	}
+
 	//One of these will be filled in.
-	optional Increment inc = 1;
-	optional Get get = 2;
-	optional Create create = 3;
+	repeated Increment inc = 1;
+	repeated Get get = 2;
+	repeated Create create = 3;
 }
 
 message Response {
+	message Error {
+		enum Status {
+			TABLE_NOT_FOUND = 1;
+			IO_EXCEPTION = 2;
+			IllegalRequest = 3;
+			TABLE_EXISTS = 4;
+		}
+
+		optional string message = 1;
+		optional Status status = 2;
+	}
+
 	message IncResult {
 		required string type = 1;
 		required string key = 2;
 		required int64 timestamp = 3;
+		optional Error error = 100;
 	}
 
 	message GetResult {
@@ -63,8 +99,15 @@ message Response {
 		required string type = 1;
 		required string key = 2;
 		repeated Metric metrics = 3;
+		optional Error error = 100;
 	}
 
-	optional IncResult inc_result = 1;
-	optional GetResult get_result = 2;
+	message CreateResult {
+		required string type = 1;
+		optional Error error = 100;
+	}
+
+	repeated IncResult inc_result = 1;
+	repeated GetResult get_result = 2;
+	repeated CreateResult create_result = 3;
 }

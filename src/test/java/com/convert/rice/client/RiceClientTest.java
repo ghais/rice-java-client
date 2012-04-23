@@ -18,9 +18,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.convert.rice.AggregationUtility;
 import com.convert.rice.TimeSeries;
-import com.convert.rice.client.protocol.Aggregation;
 import com.convert.rice.client.protocol.Response.GetResult;
 import com.convert.rice.client.protocol.Response.GetResult.Metric;
 import com.convert.rice.client.protocol.Response.IncResult;
@@ -114,7 +112,7 @@ public class RiceClientTest {
         client.inc(type, key, metrics, start).get();
         client.inc(type, key, metrics, start).get();
 
-        GetResult result = client.get(type, key, start, end, Aggregation.HOUR).get();
+        GetResult result = client.get(type, key, start, end, 60 * 60 * 1000).get();
         assertEquals(key, result.getKey());
         assertEquals(metrics.size(), result.getMetricsCount());
         Map<String, Metric> metricsMap = new HashMap<String, Metric>(metrics.size());
@@ -130,10 +128,10 @@ public class RiceClientTest {
         assertEquals(5, metricA.getPointsCount());
         assertEquals(5, metricB.getPointsCount());
 
-        assertEquals(AggregationUtility.aggregateTo(start, com.convert.rice.protocol.Aggregation.HOUR).getMillis(),
-                metricA.getPoints(0).getTimestamp());
-        assertEquals(AggregationUtility.aggregateTo(start, com.convert.rice.protocol.Aggregation.HOUR).getMillis(),
-                metricB.getPoints(0).getTimestamp());
+        assertEquals(start,
+                metricA.getPoints(0).getStart());
+        assertEquals(start,
+                metricB.getPoints(0).getStart());
 
         assertEquals(20L, metricA.getPoints(0).getValue());
         assertEquals(40L, metricB.getPoints(0).getValue());
