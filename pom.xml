@@ -17,11 +17,19 @@
       <url>https://github.com/ghais/mvnrepo/raw/master/releases</url>
     </repository>
     <snapshotRepository>
-      <id>snapshot-repo</id>
+      <id>ghais-snapshot</id>
       <url>https://github.com/ghais/mvnrepo/raw/master/snapshots</url>
     </snapshotRepository>
   </distributionManagement>
   <repositories>
+    <repository>
+      <id>ghais-snapshots</id>
+      <url>https://github.com/ghais/mvnrepo/raw/master/snapshots</url>
+    </repository>
+    <repository>
+      <id>ghais-releases</id>
+      <url>https://github.com/ghais/mvnrepo/raw/master/releases</url>
+    </repository>
     <repository>
       <id>cloudera</id>
       <name>Cloudera</name>
