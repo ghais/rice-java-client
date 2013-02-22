@@ -205,9 +205,9 @@ public class RiceClient {
             logger.log(
                     Level.WARNING,
                     "Unexpected exception from downstream. " + event.getCause(), event.getCause());
+            SettableFuture<Response> future = (SettableFuture<Response>) ctx.getAttachment();
             try {
                 pool.invalidateObject(event.getChannel());
-                SettableFuture<Response> future = (SettableFuture<Response>) ctx.getAttachment();
                 if (future != null && future.cancel(false)) {
                     logger.log(Level.WARNING, "closing channel before task was complete");
                 }
@@ -215,6 +215,7 @@ public class RiceClient {
                 if (event.getChannel().isOpen()) {
                     event.getChannel().close();
                 }
+                future.setException(exception);
             }
             super.exceptionCaught(ctx, event);
         }
