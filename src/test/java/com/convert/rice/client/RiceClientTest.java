@@ -63,7 +63,7 @@ public class RiceClientTest {
     }
 
     @AfterClass
-    public static void after() throws IOException, InterruptedException, ExecutionException {
+    public static void after() throws Exception {
         server.stop().get();
         new HBaseTimeSeries(conf, pool).deleteTable(admin, type);
         pool.close();
